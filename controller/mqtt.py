@@ -13,7 +13,14 @@ def send_mqtt_hood_message(mqtt_client, speed, retain=True):
     mqtt_client.publish('iot/hood', json.dumps(data), retain=retain)
 
 
-def on_connect(mqtt_client, userdata, flags, rc):
+def send_mqtt_lamp_message(mqtt_client, state, retain=True):
+    data = {
+        'state': state
+    }
+    mqtt_client.publish('iot/lamp', json.dumps(data), retain=retain)
+
+
+def on_connect_humidity(mqtt_client, userdata, flags, rc):
     if rc == 0:
         print('Connected successfully')
         mqtt_client.subscribe('iot/humidity')
@@ -22,7 +29,7 @@ def on_connect(mqtt_client, userdata, flags, rc):
         print('Bad connection. Code:', rc)
 
 
-def on_message(mqtt_client, userdata, msg):
+def on_message_humidity(mqtt_client, userdata, msg):
     from .models import SensorReading, HoodActuatorConfig
     try:
         print(f'Received message on topic!: {msg.topic} with payload: {msg.payload}')
@@ -41,12 +48,50 @@ def on_message(mqtt_client, userdata, msg):
         print("Decode error")
 
 
-client = mqtt.Client()
-client.on_connect = on_connect
-client.on_message = on_message
-client.username_pw_set(settings.MQTT_USER, settings.MQTT_PASSWORD)
-client.connect(
+def on_connect_illuminance(mqtt_client, userdata, flags, rc):
+    if rc == 0:
+        print('Connected successfully')
+        mqtt_client.subscribe('iot/illuminance')
+        send_mqtt_lamp_message(mqtt_client, 'off', True)
+    else:
+        print('Bad connection. Code:', rc)
+
+
+def on_message_illuminance(mqtt_client, userdata, msg):
+    from .models import SensorReading, LampActuatorConfig
+    try:
+        print(f'Received message on topic!: {msg.topic} with payload: {msg.payload}')
+        data = json.loads(msg.payload.decode('utf-8'))
+        reading = SensorReading(reading_type='illuminance', reading_value=data['illuminance'], timestamp=datetime.now())
+        reading.save()
+
+        config = LampActuatorConfig.objects.all()[0]
+        if data['illuminance'] <= config.min_value:
+            send_mqtt_hood_message(mqtt_client, 'on')
+        else:
+            send_mqtt_hood_message(mqtt_client, 'off')
+    except Exception as e:
+        print("Decode error")
+
+
+
+humidity_client = mqtt.Client()
+humidity_client.on_connect = on_connect_humidity
+humidity_client.on_message = on_message_humidity
+humidity_client.username_pw_set(settings.MQTT_USER, settings.MQTT_PASSWORD)
+humidity_client.connect(
     host=settings.MQTT_SERVER,
     port=settings.MQTT_PORT,
     keepalive=settings.MQTT_KEEPALIVE
 )
+
+illuminance_client = mqtt.Client()
+humidity_client.on_connect = on_connect_illuminance
+humidity_client.on_message = on_message_illuminance
+humidity_client.username_pw_set(settings.MQTT_USER, settings.MQTT_PASSWORD)
+humidity_client.connect(
+    host=settings.MQTT_SERVER,
+    port=settings.MQTT_PORT,
+    keepalive=settings.MQTT_KEEPALIVE
+)
+

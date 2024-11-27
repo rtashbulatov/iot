@@ -10,3 +10,8 @@ class SensorReading(models.Model):
 class HoodActuatorConfig(models.Model):
     min_value = models.FloatField(null=False, blank=False)
     hood_speed = models.IntegerField(null=False, blank=False)
+
+
+class LampActuatorConfig(models.Model):
+    min_value = models.FloatField(null=False, blank=False)
+

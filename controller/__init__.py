@@ -1,2 +1,2 @@
-from .mqtt import client
-client.loop_start()
+from .mqtt import humidity_client
+humidity_client.loop_start()
