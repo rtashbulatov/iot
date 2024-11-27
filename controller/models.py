@@ -15,3 +15,7 @@ class HoodActuatorConfig(models.Model):
 class LampActuatorConfig(models.Model):
     min_value = models.FloatField(null=False, blank=False)
 
+
+class WateringActuatorConfig(models.Model):
+    min_value = models.FloatField(null=False, blank=False)
+    max_value = models.FloatField(null=False, blank=False)
