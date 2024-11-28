@@ -1,6 +1,7 @@
 import json
 import paho.mqtt.client as mqtt
 from django.conf import settings
+from controller.telegram import send_message
 
 
 from datetime import datetime
@@ -128,8 +129,31 @@ def on_connect(mqtt_client, userdata, flags, rc):
         send_mqtt_lamp_message(mqtt_client, 'off', True)
         mqtt_client.subscribe('iot/moisture')
         send_mqtt_watering_message(mqtt_client, 'off', True)
+        mqtt_client.subscribe('iot/temperature')
     else:
         print('Bad connection. Code:', rc)
+
+
+def on_message_temperature(mqtt_client, userdata, msg):
+    from .models import SensorReading, WateringActuatorConfig, TemperatureNotificationConfig
+    try:
+        print(f'Received message on topic!: {msg.topic} with payload: {msg.payload}')
+        data = json.loads(msg.payload.decode('utf-8'))
+        last = SensorReading.objects.order_by('timestamp').last().reading_value
+
+        reading = SensorReading(reading_type='temperature', reading_value=data['temperature'], timestamp=datetime.now())
+        reading.save()
+
+        is_excess = data['temperature'] >= last
+        configs = TemperatureNotificationConfig.objects.all()
+        for config in configs:
+            if is_excess and config.is_excess and last <= config.threshold <= data['temperature']:
+                send_message(config.text + f"\nТемпература: {data['temperature']:.0f} °С")
+            elif not is_excess and not config.is_excess and last >= config.threshold >= data['temperature']:
+                send_message(config.text + f"\nТемпература: {data['temperature']:.0f} °С")
+
+    except Exception as e:
+        print("Decode error")
 
 
 def on_message(mqtt_client, userdata, msg):
@@ -139,6 +163,8 @@ def on_message(mqtt_client, userdata, msg):
         on_message_illuminance(mqtt_client, userdata, msg)
     elif msg.topic == 'iot/moisture':
         on_message_moisture(mqtt_client, userdata, msg)
+    elif msg.topic == 'iot/temperature':
+        on_message_temperature(mqtt_client, userdata, msg)
 
 
 humidity_client = mqtt.Client()

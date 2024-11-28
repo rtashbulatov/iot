@@ -19,3 +19,9 @@ class LampActuatorConfig(models.Model):
 class WateringActuatorConfig(models.Model):
     min_value = models.FloatField(null=False, blank=False)
     max_value = models.FloatField(null=False, blank=False)
+
+
+class TemperatureNotificationConfig(models.Model):
+    threshold = models.FloatField(null=False, blank=False)
+    is_excess = models.BooleanField(null=False, blank=False)
+    text = models.TextField(null=False, blank=False)

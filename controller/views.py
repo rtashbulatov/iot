@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from .models import SensorReading, HoodActuatorConfig, LampActuatorConfig, WateringActuatorConfig
+from .models import SensorReading, HoodActuatorConfig, LampActuatorConfig, WateringActuatorConfig, TemperatureNotificationConfig
 import plotly.graph_objs as go
 import plotly.offline as pyo
 from datetime import datetime, timedelta
@@ -103,3 +103,35 @@ def moisture_chart(request):
         'is_lamp_enabled': lamp_enabled
     })
 
+def temperature_chart(request):
+    # Извлекаем данные из базы данных
+    data = SensorReading.objects.filter(reading_type='temperature').filter(timestamp__gt=datetime.now() - timedelta(minutes=10)).order_by('timestamp')
+    configs = TemperatureNotificationConfig.objects.all()
+
+    # Подготавливаем данные для графика
+    illuminance_values = [d.reading_value for d in data]
+    timestamps = [d.timestamp for d in data]
+
+    last_illuminance = round(illuminance_values[-1], 2)
+    last_timestamp = timestamps[-1]
+
+    # Создаем график
+    trace = go.Scatter(x=timestamps, y=illuminance_values, mode='lines+markers', name='Temperature')
+    layout = go.Layout(title='Температура от времени', xaxis=dict(title='Дата и время'), yaxis=dict(title='Температура (°С)'))
+    fig = go.Figure(data=[trace], layout=layout)
+
+    for config in configs:
+        if config.is_excess:
+            fig.add_hline(y=config.threshold, line_color='Red')
+        else:
+            fig.add_hline(y=config.threshold, line_color='Blue')
+
+    # Генерируем HTML-код для графика
+    graph_html = pyo.plot(fig, include_plotlyjs=False, output_type='div')
+
+    # Отправляем график в контексте шаблона
+    return render(request, 'temperature_chart.html', {
+        'graph_html': graph_html,
+        'last_illuminance': last_illuminance,
+        'last_timestamp': last_timestamp
+    })
