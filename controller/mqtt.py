@@ -75,9 +75,9 @@ def on_message_illuminance(mqtt_client, userdata, msg):
 
         config = LampActuatorConfig.objects.all()[0]
         if data['illuminance'] <= config.min_value:
-            send_mqtt_hood_message(mqtt_client, 'on')
+            send_mqtt_lamp_message(mqtt_client, 'on')
         else:
-            send_mqtt_hood_message(mqtt_client, 'off')
+            send_mqtt_lamp_message(mqtt_client, 'off')
     except Exception as e:
         print("Decode error")
 
